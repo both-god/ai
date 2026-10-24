@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>spX ai model 4.0 — Custom Code & Search Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --spx-bg: #0b0f17;
+            --spx-panel: #111827;
+            --spx-border: #1f2937;
+            --spx-accent: #06b6d4;
+            --spx-purple: #8b5cf6;
+        }
+        body {
+            background-color: var(--spx-bg);
+            color: #e5e7eb;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        }
+        /* Custom Website Emoji Styles (ជំនួស Emoji ចាស់ទាំងអស់) */
+        .spx-emoji {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            vertical-align: middle;
+            margin-right: 6px;
+            margin-bottom: 2px;
+            border-radius: 6px;
+            padding: 3px;
+            background: rgba(6, 182, 212, 0.12);
+            border: 1px solid rgba(6, 182, 212, 0.35);
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.2);
+        }
+        .spx-emoji svg {
+            width: 100%;
+            height: 100%;
+        }
+        .spx-spin { animation: spxSpin 3s linear infinite; }
+        .spx-pulse { animation: spxPulse 2s ease-in-out infinite; }
+        @keyframes spxSpin { 100% { transform: rotate(360deg); } }
+        @keyframes spxPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.65; transform: scale(0.92); } }
+
+        pre.spx-code-block {
+            background: #06090f;
+            border: 1px solid #1e293b;
+            border-radius: 10px;
+            padding: 14px;
+            overflow-x: auto;
+            color: #38bdf8;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+        .chat-scroll::-webkit-scrollbar { width: 6px; }
+        .chat-scroll::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 4px; }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+
+    <!-- Header ជាមួយ Custom Logo Emoji និងស្ថិតិ Data Server -->
+    <header class="border-b border-slate-800 bg-[#0f1523]/90 backdrop-blur px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div id="headerLogo"></div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-lg font-bold tracking-wide bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+                        spX ai model 4.0
+                    </h1>
+                    <span class="text-[10px] uppercase px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-semibold">
+                        Code + Data Server
+                    </span>
+                </div>
+                <p class="text-xs text-slate-400">ស្វែងយល់កូដ រក្សាទុកក្នុង Server និងឆ្លើយតបល្បឿនលឿន</p>
+            </div>
+        </div>
+
+        <!-- Data Server Counter -->
+        <div class="flex items-center gap-3 text-xs bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-xl">
+            <span id="dbBadgeIcon"></span>
+            <div>
+                <span class="text-slate-400">Data Server:</span>
+                <strong id="learnedCount" class="text-cyan-400 ml-1">{{ stats.learned_items }}</strong>
+                <span class="text-slate-500 ml-1">គំរូកូដ/ទិន្នន័យ</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Quick Action Bar -->
+    <div class="bg-[#0d1320] border-b border-slate-800/80 px-4 py-2 flex gap-2 overflow-x-auto text-xs">
+        <button onclick="quickPrompt('សរសេរកូដបង្កើត HTML បញ្ជូនទិន្នន័យទៅ Python Flask Server')" class="px-3 py-1.5 rounded-lg bg-slate-800/70 hover:bg-slate-800 text-cyan-300 border border-slate-700/60 whitespace-nowrap transition">
+            + បង្កើត Base HTML ទៅ Python Server
+        </button>
+        <button onclick="quickPrompt('បង្កើតកូដ Website ទំព័រដើម ជាមួយ HTML និង CSS')" class="px-3 py-1.5 rounded-lg bg-slate-800/70 hover:bg-slate-800 text-purple-300 border border-slate-700/60 whitespace-nowrap transition">
+            + សរសេរកូដ HTML UI
+        </button>
+        <button onclick="quickPrompt('គណនាលេខ (2500 * 4) + 1500')" class="px-3 py-1.5 rounded-lg bg-slate-800/70 hover:bg-slate-800 text-emerald-300 border border-slate-700/60 whitespace-nowrap transition">
+            + គណនាលេខលឿន
+        </button>
+    </div>
+
+    <!-- Chat Area -->
+    <main id="chatContainer" class="chat-scroll flex-1 overflow-y-auto p-4 md:p-6 space-y-4 max-w-4xl w-full mx-auto">
+        <div id="welcomeMsg" class="bg-[#111827] border border-slate-800 p-4 rounded-2xl text-sm leading-relaxed"></div>
+    </main>
+
+    <!-- Live HTML Preview Modal -->
+    <div id="previewModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-[#111827] border border-slate-700 rounded-2xl w-full max-w-3xl h-[75vh] flex flex-col overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+                <span class="text-sm font-semibold text-cyan-400">spX 4.0 — Live HTML Preview</span>
+                <button onclick="closePreview()" class="text-xs bg-rose-500/20 text-rose-300 px-3 py-1 rounded-lg border border-rose-500/30">បិទ Preview</button>
+            </div>
+            <iframe id="previewFrame" class="w-full flex-1 bg-white"></iframe>
+        </div>
+    </div>
+
+    <!-- Input Footer -->
+    <footer class="p-4 bg-[#0f1523] border-t border-slate-800">
+        <form id="askForm" class="max-w-4xl mx-auto flex gap-2">
+            <input 
+                type="text" 
+                id="queryInput" 
+                autocomplete="off"
+                placeholder="បញ្ជាឱ្យ spX ai model 4.0 សរសេរកូដ, គណនា, ឬ Search ព័ត៌មាន..." 
+                class="flex-1 bg-[#161f33] text-white px-4 py-3 rounded-xl border border-slate-700 focus:outline-none focus:border-cyan-400 text-sm"
+                required
+            >
+            <button 
+                type="submit" 
+                id="sendBtn"
+                class="bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white px-6 py-3 rounded-xl font-medium text-sm transition flex items-center gap-2"
+            >
+                <span id="sendIcon"></span>
+                <span>បញ្ជូន</span>
+            </button>
+        </form>
+    </footer>
+
+    <script>
+        // =====================================================
+        // ១. ប្រព័ន្ធ CUSTOM WEBSITE EMOJI ថ្មីរបស់ spX 4.0 (គ្មាន Emoji ចាស់)
+        // =====================================================
+        const SPX_CUSTOM_EMOJIS = {
+            '[spx_core]': `<span class="spx-emoji spx-pulse" title="spX Core"><svg viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2"><polygon points="12 2 21 7 21 17 12 22 3 17 3 7"/><circle cx="12" cy="12" r="3" fill="#8b5cf6"/></svg></span>`,
+            '[spx_code]': `<span class="spx-emoji" title="spX Code Engine"><svg viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2.2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/><line x1="14" y1="4" x2="10" y2="20"/></svg></span>`,
+            '[spx_data]': `<span class="spx-emoji" title="spX Data Server"><svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></span>`,
+            '[spx_search]': `<span class="spx-emoji spx-spin" title="spX Fast Radar"><svg viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 12L19 5"/><circle cx="12" cy="12" r="2" fill="#38bdf8"/></svg></span>`,
+            '[spx_calc]': `<span class="spx-emoji" title="spX Math Matrix"><svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="14" x2="16" y2="14"/><line x1="12" y1="10" x2="12" y2="18"/></svg></span>`,
+            '[spx_bolt]': `<span class="spx-emoji spx-pulse" title="spX Instant Cache"><svg viewBox="0 0 24 24" fill="none" stroke="#facc15" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>`,
+            '[spx_link]': `<span class="spx-emoji" title="spX Web Node"><svg viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>`,
+            '[spx_check]': `<span class="spx-emoji" title="spX Verified"><svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>`,
+            '[spx_error]': `<span class="spx-emoji" title="spX Alert"><svg viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2.2"><polygon points="12 2 22 20 2 20"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r="1" fill="#f43f5e"/></svg></span>`,
+            '[spx_send]': `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`
+        };
+
+        function replaceCustomEmojis(html) {
+            let output = html;
+            for (const [tag, svg] of Object.entries(SPX_CUSTOM_EMOJIS)) {
+                output = output.split(tag).join(svg);
+            }
+            return output;
+        }
+
+        // បង្ហាញ Custom Emoji នៅលើ Header និងសារស្វាគមន៍
+        document.getElementById('headerLogo').innerHTML = SPX_CUSTOM_EMOJIS['[spx_core]'];
+        document.getElementById('dbBadgeIcon').innerHTML = SPX_CUSTOM_EMOJIS['[spx_data]'];
+        document.getElementById('sendIcon').innerHTML = SPX_CUSTOM_EMOJIS['[spx_send]'];
+        document.getElementById('welcomeMsg').innerHTML = replaceCustomEmojis(
+            `[spx_core] សួស្តី! ខ្ញុំគឺ <strong>spX ai model 4.0</strong>។<br>` +
+            `[spx_code] ខ្ញុំអាចស្វែងយល់ពីរបៀបសរសេរកូដ រក្សាទុកទម្រង់កូដចូលក្នុង <strong>Data Server</strong> និងបង្កើត Base HTML / Python Server ជូនអ្នកដោយស្វ័យប្រវត្តិ។`
+        );
+
+        // =====================================================
+        // ២. ប្រព័ន្ធ FRONTEND FAST CACHE (ជួយឱ្យការ Search លឿនទ្វេដង)
+        // =====================================================
+        const localFastCache = new Map();
+        const encodedCodes = [];
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function formatMessageContent(rawText) {
+            let text = rawText;
+
+            // បំប្លែង Code Blocks ឱ្យមានប៊ូតុង Copy និង Live HTML Preview
+            text = text.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+                const idx = encodedCodes.push(code.trim()) - 1;
+                const isHtml = (lang && lang.toLowerCase() === 'html') || code.includes('<html') || code.includes('<!DOCTYPE');
+                const previewBtn = isHtml 
+                    ? `<button onclick="previewHtmlCode(${idx})" class="text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 px-2.5 py-1 rounded border border-purple-500/30">Run HTML</button>` 
+                    : '';
+                return `
+                <div class="my-3">
+                    <div class="flex items-center justify-between bg-slate-900 px-3 py-1.5 rounded-t-lg border border-b-0 border-slate-800 text-xs">
+                        <span class="text-cyan-400 font-mono">[spx_code] ${lang || 'code'}</span>
+                        <div class="flex gap-2">
+                            ${previewBtn}
+                            <button onclick="copyCode(${idx}, this)" class="text-xs bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 px-2.5 py-1 rounded border border-cyan-500/30">Copy Code</button>
+                        </div>
+                    </div>
+                    <pre class="spx-code-block !mt-0 !rounded-t-none"><code>${escapeHtml(code.trim())}</code></pre>
+                </div>`;
+            });
+
+            text = text
+                .replace(/\*\*(.*?)\*\*/g, '<strong class="text-cyan-300">$1</strong>')
+                .replace(/`([^`]+)`/g, '<code class="bg-slate-950 px-2 py-0.5 rounded text-emerald-400 border border-slate-800">$1</code>')
+                .replace(/\n/g, '<br>');
+
+            return replaceCustomEmojis(text);
+        }
+
+        window.copyCode = function(idx, btn) {
+            navigator.clipboard.writeText(encodedCodes[idx]);
+            btn.innerHTML = replaceCustomEmojis('[spx_check] Copied');
+            setTimeout(() => { btn.textContent = 'Copy Code'; }, 1500);
+        };
+
+        window.previewHtmlCode = function(idx) {
+            const modal = document.getElementById('previewModal');
+            const frame = document.getElementById('previewFrame');
+            frame.srcdoc = encodedCodes[idx];
+            modal.classList.remove('hidden');
+        };
+
+        window.closePreview = function() {
+            document.getElementById('previewModal').classList.add('hidden');
+        };
+
+        window.quickPrompt = function(text) {
+            document.getElementById('queryInput').value = text;
+            document.getElementById('askForm').requestSubmit();
+        };
+
+        const chatContainer = document.getElementById('chatContainer');
+        const form = document.getElementById('askForm');
+        const input = document.getElementById('queryInput');
+        const sendBtn = document.getElementById('sendBtn');
+
+        function appendChatBubble(role, text, sources = []) {
+            const div = document.createElement('div');
+            div.className = role === 'user'
+                ? 'bg-cyan-600/15 border border-cyan-500/30 p-4 rounded-2xl text-sm ml-auto max-w-[85%]'
+                : 'bg-[#111827] border border-slate-800 p-4 rounded-2xl text-sm space-y-3';
+
+            let html = `<div>${formatMessageContent(text)}</div>`;
+
+            if (sources && sources.length > 0) {
+                html += `<div class="pt-3 border-t border-slate-800/80 text-xs">
+                    <p class="mb-2 text-slate-400">${replaceCustomEmojis('[spx_link] ប្រភពដែល spX 4.0 បានស្វែងយល់៖')}</p>
+                    <div class="flex flex-wrap gap-2">`;
+                sources.forEach((s, i) => {
+                    html += `<a href="${s.link}" target="_blank" class="bg-slate-900 hover:bg-slate-800 text-cyan-400 border border-slate-800 px-2.5 py-1 rounded-lg truncate max-w-[240px]">[${i+1}] ${s.title}</a>`;
+                });
+                html += `</div></div>`;
+            }
+
+            div.innerHTML = html;
+            chatContainer.appendChild(div);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            return div;
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const query = input.value.trim();
+            if (!query) return;
+
+            appendChatBubble('user', escapeHtml(query));
+            input.value = '';
+
+            // ឆែកក្នុង Client Fast Cache មុនដើម្បីឱ្យលឿនភ្លាមៗ
+            const cacheKey = query.toLowerCase();
+            if (localFastCache.has(cacheKey)) {
+                const cached = localFastCache.get(cacheKey);
+                appendChatBubble('bot', `[spx_bolt] **Instant Client Memory (0.001s)**\n\n` + cached.answer, cached.sources);
+                return;
+            }
+
+            sendBtn.disabled = true;
+            const loadingBubble = appendChatBubble('bot', '[spx_search] **spX ai model 4.0** កំពុងស្វែងយល់កូដ និងរក្សាទុកចូលក្នុង Data Server...');
+
+            try {
+                const res = await fetch('/api/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query })
+                });
+                const data = await res.json();
+                loadingBubble.remove();
+
+                if (data.error) {
+                    appendChatBubble('bot', `[spx_error] ${data.error}`);
+                } else {
+                    localFastCache.set(cacheKey, data);
+                    appendChatBubble('bot', data.answer, data.sources);
+                    if (data.stats) {
+                        document.getElementById('learnedCount').textContent = data.stats.learned_items;
+                    }
+                }
+            } catch (err) {
+                loadingBubble.remove();
+                appendChatBubble('bot', '[spx_error] មិនអាចភ្ជាប់ទៅកាន់ Python Data Server បានទេ។');
+            } finally {
+                sendBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
